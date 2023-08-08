@@ -1,5 +1,8 @@
 import os
+import time
 import pickle
+import colorama
+from tqdm import tqdm
 from dotenv import load_dotenv
 from filetype import guess
 from langchain.document_loaders import UnstructuredImageLoader
@@ -87,7 +90,7 @@ class PDF_AI:
     def create_chunks(self):
         text_splitter = CharacterTextSplitter(        
             separator = "\n\n",
-            chunk_size = 1000,
+            chunk_size = 1500,
             chunk_overlap  = 200,
             length_function = len,
         )
@@ -111,17 +114,20 @@ class PDF_AI:
     def load_chunks_from_file(self, filename):
         with open(filename, 'rb') as file:
             return pickle.load(file)
-    
-    def chat_with_file(self, query):
+        
+    def create_or_load_cache(self):
         # Attempt to load cached chunks
         try:
-            file_splitter = self.load_chunks_from_file("chunks_cache.pkl")
+            file_splitter = self.load_chunks_from_file(f"chunks_cache+{self.file_path}.pkl")
         except (FileNotFoundError, pickle.UnpicklingError):
             file_content = self.extract_file_content()
             file_splitter = self.create_chunks().split_text(file_content)
             # Save the chunks to a file for future use
-            self.save_chunks_to_file(file_splitter, "chunks_cache.pkl")
-
+            self.save_chunks_to_file(file_splitter, f"chunks_cache+{self.file_path}.pkl")
+        return file_splitter
+    
+    def chat_with_file(self, query):
+        file_splitter =  self.create_or_load_cache()
         embeddings = self.create_embeddings()
         document_search = self.get_doc_search(file_splitter, embeddings)
         documents = document_search.similarity_search(query)
@@ -132,16 +138,23 @@ class PDF_AI:
                         return_only_outputs=True)
         results = results['intermediate_steps'][0]
         return results
+    
+    def loop_chat_with_file(self):
+        if self.create_or_load_cache():
+            while True:
+                query = input(colorama.Fore.BLUE + "Q: " + colorama.Fore.RESET)
+                if query == "exit" or query == '':
+                    break
+                results = self.chat_with_file(query)
+                answer = results["answer"]
+                confidence_score = results["score"]
+                print(colorama.Fore.GREEN + f"R: {answer}" + colorama.Fore.RESET + "\n" +
+                    colorama.Fore.RED + f"[Confidence:{confidence_score}%]" + colorama.Fore.RESET)
+                print("------------------------------------------------------------------------------")
 
 
 if __name__ == "__main__":
     file_path = "pentagon_on_prc.pdf"
-    #Detect Document Type
     PDF_AI = PDF_AI(file_path)
-    #Chat with PDF File:
     chain = PDF_AI.create_chain()
-    query = "What are the key takeaways of this paper as per the pentagon?"
-    results = PDF_AI.chat_with_file(query)
-    answer = results["answer"]
-    confidence_score = results["score"]
-    print(f"Confidence Score: {confidence_score}")
+    PDF_AI.loop_chat_with_file()
