@@ -1,8 +1,6 @@
 import os
-import time
 import pickle
 import colorama
-from tqdm import tqdm
 from dotenv import load_dotenv
 from filetype import guess
 from langchain.document_loaders import UnstructuredImageLoader
@@ -19,6 +17,8 @@ class PDF_AI:
     def __init__(self, file_path):
         self.key = os.getenv("OPENAI_API_KEY")
         self.file_path = file_path
+        self.file_name = file_path.replace("/", "+")
+        self.cache_directory = "cache"
         self._file_type = None
         self._file_content = None
         self._file_splitter = None
@@ -65,7 +65,7 @@ class PDF_AI:
         if not self._chain:
             self._chain = self.create_chain()
         return self._chain
-        
+   
     def detect_document_type(self):
         guess_file = guess(self.file_path)
         file_type = ""
@@ -112,18 +112,23 @@ class PDF_AI:
             pickle.dump(chunks, file)
 
     def load_chunks_from_file(self, filename):
+        if not os.path.exists(self.cache_directory):
+            os.mkdir(self.cache_directory)
         with open(filename, 'rb') as file:
             return pickle.load(file)
         
     def create_or_load_cache(self):
         # Attempt to load cached chunks
         try:
-            file_splitter = self.load_chunks_from_file(f"chunks_cache+{self.file_path}.pkl")
+            file_splitter = self.load_chunks_from_file(f"cache/chunks_cache+{self.file_name}.pkl")
         except (FileNotFoundError, pickle.UnpicklingError):
+            print(colorama.Fore.LIGHTMAGENTA_EX + "No cached chunks found." + colorama.Fore.RESET)
+            print(colorama.Fore.LIGHTMAGENTA_EX + "Creating chunks..." + colorama.Fore.RESET)
             file_content = self.extract_file_content()
             file_splitter = self.create_chunks().split_text(file_content)
             # Save the chunks to a file for future use
-            self.save_chunks_to_file(file_splitter, f"chunks_cache+{self.file_path}.pkl")
+            self.save_chunks_to_file(file_splitter, f"cache/chunks_cache+{self.file_name}.pkl")
+            print(colorama.Fore.LIGHTMAGENTA_EX + "Chunks created & cached." + colorama.Fore.RESET)
         return file_splitter
     
     def chat_with_file(self, query):
@@ -136,7 +141,8 @@ class PDF_AI:
                             "question": query
                         }, 
                         return_only_outputs=True)
-        results = results['intermediate_steps'][0]
+        print(results)
+        results = results['output_text']
         return results
     
     def loop_chat_with_file(self):
