@@ -14,10 +14,10 @@ from langchain.chains.question_answering import load_qa_chain
 load_dotenv() # Load the .env file
 
 class PDF_AI:
-    def __init__(self, file_path):
+    def __init__(self):
         self.key = os.getenv("OPENAI_API_KEY")
-        self.file_path = file_path
-        self.file_name = file_path.replace("/", "+")
+        self.file_path = self.user_filepath_input()
+        self.file_name = self.file_path.replace("/", "+")
         self.cache_directory = "cache"
         self._file_type = None
         self._file_content = None
@@ -152,15 +152,18 @@ class PDF_AI:
                 if query == "exit" or query == '':
                     break
                 results = self.chat_with_file(query)
-                answer = results["answer"]
-                confidence_score = results["score"]
-                print(colorama.Fore.GREEN + f"R: {answer}" + colorama.Fore.RESET + "\n" +
-                    colorama.Fore.RED + f"[Confidence:{confidence_score}%]" + colorama.Fore.RESET)
+                answer = results
+                print(colorama.Fore.GREEN + f"R: {answer}" + colorama.Fore.RESET)
                 print("------------------------------------------------------------------------------")
+
+    def user_filepath_input(self):
+        file_path = input("Enter the file path: ")
+        self.filepath = file_path
+        return file_path
 
 
 if __name__ == "__main__":
-    file_path = "pentagon_on_prc.pdf"
-    PDF_AI = PDF_AI(file_path)
+    PDF_AI = PDF_AI()
+    #file_path = PDF_AI.user_filepath_input()
     chain = PDF_AI.create_chain()
     PDF_AI.loop_chat_with_file()
