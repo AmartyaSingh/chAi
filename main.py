@@ -1,6 +1,7 @@
 import os
 import pickle
 import colorama
+import warnings
 from dotenv import load_dotenv
 from filetype import guess
 from langchain.document_loaders import UnstructuredImageLoader
@@ -11,7 +12,19 @@ from langchain.vectorstores import FAISS
 from langchain.llms import OpenAI
 from langchain.chains.question_answering import load_qa_chain
 
-load_dotenv() # Load the .env file
+# Load the .env file
+load_dotenv() 
+
+"""
+Suppress UserWarnings for deprecated apply_and_parse method,
+Rectify this in the future as and when the library is updated.
+/Users/amart/Projects/pdf_ChAi/chAi_venv/lib/python3.9/
+site-packages/langchain/chains/llm.py:303: 
+UserWarning: The apply_and_parse method is deprecated, 
+instead pass an output parser directly to LLMChain.warnings.warn(
+"""
+warnings.simplefilter(action='ignore', category=UserWarning)
+
 
 class PDF_AI:
     def __init__(self):
@@ -141,7 +154,7 @@ class PDF_AI:
                             "question": query
                         }, 
                         return_only_outputs=True)
-        print(results)
+        #print(results)
         results = results['output_text']
         return results
     
